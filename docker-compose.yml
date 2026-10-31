@@ -1,61 +1,58 @@
-version: "3.9"
-
-# ====== NETWORKS ======
 networks:
   authentik_net:
     driver: overlay
     attachable: true
-
-# ====== VOLUMES ======
 volumes:
-  ak_db:
-  ak_redis:
-  ak_media:
-  ak_templates:
-  ak_certs:
-
-# ====== SERVICES ======
+  authentik-master_ak_db:
+    name: authentik-master_ak_db
+  authentik-master_ak_redis:
+    name: authentik-master_ak_redis
+  authentik-master_ak_media:
+    name: authentik-master_ak_media
+  authentik-master_ak_templates:
+    name: authentik-master_ak_templates
+  authentik-master_ak_certs:
+    name: authentik-master_ak_certs
 services:
   postgresql:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229
     environment:
       POSTGRES_PASSWORD: ${PG_PASS}
       POSTGRES_USER: ${PG_USER:-authentik}
       POSTGRES_DB: ${PG_DB:-authentik}
       TZ: America/Chicago
     volumes:
-      - ak_db:/var/lib/postgresql/data
-      - /etc/localtime:/etc/localtime:ro
-      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
-    networks:
-      - authentik_net
+    - authentik-master_ak_db:/var/lib/postgresql/data
+    - /etc/localtime:/etc/localtime:ro
+    - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
     deploy:
       placement:
         constraints:
-          - node.labels.deployment.target.authentik == true
+        - node.labels.deployment.target.authentik == true
       restart_policy:
         condition: on-failure
-
   redis:
-    image: redis:alpine
-    command: ["--save","60","1","--loglevel","warning"]
+    image: redis:alpine@sha256:09160599abd229764c0fb44cb6be640294e1d360a54b19985ab4843dcf2d90f1
+    command:
+    - --save
+    - '60'
+    - '1'
+    - --loglevel
+    - warning
     environment:
-      - TZ=America/Chicago
+    - TZ=America/Chicago
     volumes:
-      - ak_redis:/data
-      - /etc/localtime:/etc/localtime:ro
-      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
-    networks:
-      - authentik_net
+    - authentik-master_ak_redis:/data
+    - /etc/localtime:/etc/localtime:ro
+    - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
     deploy:
       placement:
         constraints:
-          - node.labels.deployment.target.authentik == true
+        - node.labels.deployment.target.authentik == true
       restart_policy:
         condition: on-failure
-
   server:
-    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.5.2}
+    image: ghcr.io/goauthentik/server:2026.5.6
     command: server
     environment:
       AUTHENTIK_REDIS__HOST: redis
@@ -67,30 +64,27 @@ services:
       AUTHENTIK_BOOTSTRAP_EMAIL: ${AUTHENTIK_BOOTSTRAP_EMAIL}
       AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD}
       TZ: America/Chicago
-    networks:
-      - authentik_net
     ports:
-      - "10.11.101.5:9000:9000"
-      - "10.11.101.5:8443:9443"
-      - "10.11.101.5:636:636"
+    - 10.11.101.5:9000:9000
+    - 10.11.101.5:8443:9443
+    - 10.11.101.5:636:636
     volumes:
-      - ak_media:/media
-      - ak_templates:/templates
-      - ak_certs:/certs
-      - /etc/localtime:/etc/localtime:ro
-      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+    - authentik-master_ak_media:/media
+    - authentik-master_ak_templates:/templates
+    - authentik-master_ak_certs:/certs
+    - /etc/localtime:/etc/localtime:ro
+    - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
     depends_on:
-      - redis
-      - postgresql
+    - redis
+    - postgresql
     deploy:
       placement:
         constraints:
-          - node.labels.deployment.target.authentik == true
+        - node.labels.deployment.target.authentik == true
       restart_policy:
         condition: on-failure
-
   worker:
-    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.5.2}
+    image: ghcr.io/goauthentik/server:2026.5.6
     command: worker
     environment:
       AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
@@ -100,20 +94,18 @@ services:
       AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
       AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
       TZ: America/Chicago
-    networks:
-      - authentik_net
     volumes:
-      - ak_media:/media
-      - ak_templates:/templates
-      - ak_certs:/certs
-      - /etc/localtime:/etc/localtime:ro
-      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+    - authentik-master_ak_media:/media
+    - authentik-master_ak_templates:/templates
+    - authentik-master_ak_certs:/certs
+    - /etc/localtime:/etc/localtime:ro
+    - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
     depends_on:
-      - redis
-      - postgresql
+    - redis
+    - postgresql
     deploy:
       placement:
         constraints:
-          - node.labels.deployment.target.authentik == true
+        - node.labels.deployment.target.authentik == true
       restart_policy:
         condition: on-failure
